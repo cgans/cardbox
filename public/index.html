@@ -331,14 +331,16 @@ function openDrawer(c) {
   $("drawer").scrollTop = 0; if (window.innerWidth > 640) $("drawer").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function closeDrawer() { $("drawer").hidden = true; editing = null; document.body.classList.remove("sheet-open"); }
-function saveCard() {
+async function saveCard() {
   if (usingSample) { usingSample = false; }
+  if ($("f-scp").value && canPrice()) { $("save").disabled = true; await fillPrice(); $("save").disabled = false; }
   const c = editing || { id: uid() };
   Object.assign(c, { year: +$("f-year").value || null, set: $("f-set").value.trim(), player: $("f-player").value.trim(), num: $("f-num").value.trim(), variation: $("f-var").value.trim() || "Base",
     grade: $("f-grade").value, qty: Math.max(1, +$("f-qty").value || 1), cost: +$("f-cost").value || 0, value: +$("f-value").value || 0, notes: $("f-notes").value.trim(), scp: $("f-scp").value || null });
   if (!c.player && !c.set) { note("A card needs at least a player or a set."); return; }
+  if (c.scp && c.value) c.priced = Date.now();
   if (!editing) data.cards.push(c);
-  save(); closeDrawer(); note(""); render();
+  snapshot(); save(); closeDrawer(); render();
 }
 async function lookup() {
   const q = $("q").value.trim(); if (!q) return;
@@ -351,14 +353,25 @@ async function lookup() {
     ul.querySelectorAll("button").forEach(b => b.addEventListener("click", () => pick(b.dataset)));
   } catch (e) { ul.innerHTML = `<li class="hint">Lookup failed: ${esc(e.message)}</li>`; }
 }
+async function priceFor(scpId, grade) {
+  const p = await scp("product", { id: scpId }); const cents = p[PRICE_FIELD[grade]];
+  return cents == null ? null : cents / 100;
+}
+async function fillPrice() {
+  const id = $("f-scp").value; if (!id || !canPrice()) return;
+  $("f-value").placeholder = "fetching…";
+  try { const v = await priceFor(id, $("f-grade").value); if (v != null) $("f-value").value = v.toFixed(2); else note(`No ${GRADES[$("f-grade").value]} price on SportsCardsPro for this card; enter one by hand.`); }
+  catch (e) { note("Price lookup failed: " + e.message); }
+  $("f-value").placeholder = "0.00";
+}
 async function pick(d) {
   // console-name looks like "Baseball Cards 1989 Upper Deck"; product-name like "Ken Griffey Jr. #1 [Error]"
   const m = /^(?:\w+ Cards )?(\d{4})\s+(.*)$/.exec(d.set) || [];
   const pm = /^(.*?)\s*#(\S+)\s*(?:\[(.*)\])?$/.exec(d.name) || [];
   $("f-year").value = m[1] || ""; $("f-set").value = m[2] || d.set; $("f-player").value = pm[1] || d.name; $("f-num").value = pm[2] || ""; $("f-var").value = pm[3] || "";
   $("f-scp").value = d.id;
-  try { const p = await scp("product", { id: d.id }); const cents = p[PRICE_FIELD[$("f-grade").value]]; if (cents != null) $("f-value").value = (cents / 100).toFixed(2); } catch (e) {}
-  $("results").innerHTML = `<li class="hint">Linked to SportsCardsPro #${esc(d.id)}. Change the grade and the value re-fetches on save-refresh.</li>`;
+  $("results").innerHTML = `<li class="hint">Linked to SportsCardsPro #${esc(d.id)}. The value follows the grade you pick.</li>`;
+  await fillPrice();
 }
 
 // ---------- import / export ----------
@@ -386,6 +399,7 @@ $("add").addEventListener("click", () => openDrawer(null));
 $("cancel").addEventListener("click", closeDrawer);
 $("save").addEventListener("click", saveCard);
 $("delete").addEventListener("click", () => { if (!editing) return; data.cards = data.cards.filter(c => c.id !== editing.id); save(); closeDrawer(); render(); });
+$("f-grade").addEventListener("change", fillPrice);
 $("search").addEventListener("click", lookup); $("q").addEventListener("keydown", e => { if (e.key === "Enter") lookup(); });
 $("refresh").addEventListener("click", refreshPrices);
 $("io").addEventListener("click", openIO); $("ioclose").addEventListener("click", () => $("iobox").hidden = true);
