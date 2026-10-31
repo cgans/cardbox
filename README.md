@@ -9,8 +9,8 @@ Baseball card collection tracker. Single static page, no build step.
 
 ## Deploy
 
-Cloudflare Pages, connected to this repo. No framework, no build command, output directory `/`.
+Cloudflare Workers (static assets), connected to this repo. `wrangler.toml` serves `public/`; no build command.
 
 ## Local
 
-Open `index.html` in a browser.
+Open `public/index.html` in a browser.
