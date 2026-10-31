@@ -14,3 +14,8 @@ Cloudflare Workers, connected to this repo. `src/worker.js` serves `public/` and
 ## Local
 
 Open `public/index.html` in a browser.
+
+## Docs
+
+- [Getting Started](docs/getting-started.md) for Heather and Jamo
+- [Admin Runbook](docs/admin-runbook.md) for the operator
