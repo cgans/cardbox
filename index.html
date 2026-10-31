@@ -1,0 +1,382 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cardbox</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+[hidden] { display: none !important } img { max-width: 100% }
+/* Layout: portfolio summary strip, two small charts side by side, then the collection table with an add/edit drawer. Ledger aesthetic: ruled rows, mono numbers, one accent. */
+:root {
+  --bg: #f3f1ec; --panel: #ffffff; --fg: #1f1e1a; --muted: #6b675d; --line: #d9d4c8;
+  --accent: #1f4e8c; --accent-ink: #ffffff; --accent-soft: rgba(31,78,140,.14);
+  --up: #2c7a4b; --down: #b04040;
+  --display: "Oswald", "Arial Narrow", sans-serif; --body: "Source Sans 3", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #16181c; --panel: #1f2329; --fg: #e8e6e0; --muted: #9b9890; --line: #343a43;
+  --accent: #7fb0ea; --accent-ink: #0f1a28; --accent-soft: rgba(127,176,234,.16); --up: #63c28a; --down: #e27a7a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #16181c; --panel: #1f2329; --fg: #e8e6e0; --muted: #9b9890; --line: #343a43;
+  --accent: #7fb0ea; --accent-ink: #0f1a28; --accent-soft: rgba(127,176,234,.16); --up: #63c28a; --down: #e27a7a; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); line-height: 1.45; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 18px }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px }
+h1 { font-family: var(--display); font-weight: 600; font-size: 2rem; letter-spacing: .04em; text-transform: uppercase; margin: 0 }
+.tools { display: flex; gap: 8px; flex-wrap: wrap }
+button, .btn { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 6px 12px }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; color: var(--muted) }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px }
+.stat { background: var(--panel); border-top: 3px solid var(--accent); padding: 10px 14px; display: grid; gap: 2px }
+.stat .v { font-family: var(--mono); font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1 }
+.stat .v.up { color: var(--up) } .stat .v.down { color: var(--down) }
+.stat .s { font-size: .8rem; color: var(--muted) }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; display: grid; gap: 6px }
+.chart h2 { font-family: var(--display); font-weight: 500; font-size: 1rem; letter-spacing: .04em; text-transform: uppercase; margin: 0 }
+.chart svg { width: 100%; height: auto; display: block; font-family: var(--mono); font-size: 11px }
+.chart .tip { font-size: .8rem; color: var(--muted); min-height: 1.2em; font-variant-numeric: tabular-nums }
+
+.tablewrap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; font-variant-numeric: tabular-nums }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap }
+th { font-family: var(--display); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; font-size: .72rem; color: var(--muted); cursor: pointer; user-select: none }
+td.num, th.num { text-align: right; font-family: var(--mono); font-size: .85rem }
+td .sub { display: block; font-size: .78rem; color: var(--muted); white-space: normal }
+tr:hover td { background: var(--accent-soft) }
+.gain.up { color: var(--up) } .gain.down { color: var(--down) }
+.rowbtn { padding: 3px 8px; font-size: .8rem }
+.filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+.filter input, .filter select { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); min-width: 0 }
+
+.drawer { background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px }
+.drawer h2 { margin: 0; font-family: var(--display); font-weight: 500; font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 10px }
+.grid label { display: grid; gap: 2px; font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; min-width: 0 }
+.grid input, .grid select { font: inherit; font-size: .95rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); min-width: 0; width: 100% }
+.lookup { border: 1px dashed var(--line); border-radius: 6px; padding: 10px; display: grid; gap: 8px; font-size: .9rem }
+.lookup ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px }
+.lookup li button { width: 100%; text-align: left; font-size: .88rem }
+.lookup .hint { color: var(--muted); font-size: .8rem }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end }
+.note { background: var(--accent-soft); border-radius: 8px; padding: 10px 14px; font-size: .88rem }
+details.settings { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font-size: .88rem }
+details.settings summary { cursor: pointer; font-weight: 600 }
+details.settings input { font: inherit; font-family: var(--mono); font-size: .85rem; width: 100%; max-width: 460px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg) }
+textarea { font: inherit; font-family: var(--mono); font-size: .8rem; width: 100%; min-height: 120px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 8px }
+footer { font-size: .75rem; color: var(--muted) }
+#sortsel { display: none }
+@media (max-width: 640px) {
+  .stats { grid-template-columns: 1fr 1fr } .stat .v { font-size: 1.2rem } .stat .v small { font-size: .75rem }
+  .tools button { padding: 8px 12px }
+  #sortsel { display: inline-block }
+  .tablewrap { overflow-x: visible; background: transparent; border: 0 }
+  table, tbody, tr, td { display: block } thead { display: none }
+  tr { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px }
+  tr:hover td { background: transparent }
+  td { border: 0; padding: 0; white-space: normal; font-size: .9rem }
+  td.num { text-align: left; font-size: .9rem }
+  td[data-l]::before { content: attr(data-l); display: block; font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-family: var(--display) }
+  td.card, td.act { grid-column: 1 / -1 } td.card { font-weight: 600; font-size: 1rem } td.card .sub { font-weight: 400 }
+  td.act { display: flex; gap: 8px; margin-top: 4px } td.act .rowbtn, td.act .btn { flex: 1; text-align: center; padding: 8px }
+  td.gain::before, td.value::before { font-family: var(--display) }
+  .chart svg { font-size: 12px }
+  input, select, textarea, button, .btn { font-size: 16px } /* iOS zooms on focus below 16px */
+  /* Add/edit as a full-screen sheet */
+  .drawer { position: fixed; inset: 0; z-index: 20; overflow-y: auto; border: 0; border-radius: 0; margin: 0; align-content: start;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-bottom: 0 }
+  body.sheet-open { overflow: hidden }
+  .drawer .grid { grid-template-columns: 1fr 1fr; gap: 12px 10px }
+  .drawer .grid label { grid-column: 1 / -1; font-size: .72rem } .drawer .grid label.half { grid-column: auto }
+  .grid input, .grid select { padding: 10px 10px; border-radius: 8px }
+  .lookup { padding: 10px } .lookup li button { padding: 10px 12px; line-height: 1.3; white-space: normal }
+  .drawer .actions { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); margin: 6px -16px 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)) }
+  .drawer .actions button { padding: 10px 16px } .drawer .actions #save { flex: 1 }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Cardbox</h1>
+    <div class="tools">
+      <button type="button" id="add" class="btn primary">Add card</button>
+      <button type="button" id="refresh">Refresh prices</button>
+      <button type="button" id="io">Import / export</button>
+    </div>
+  </header>
+
+  <div class="note" id="note" hidden></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="charts">
+    <div class="chart"><h2>Value by set</h2><svg id="bysetsvg" viewBox="0 0 420 200"></svg><div class="tip" id="bysettip">Hover a bar</div></div>
+    <div class="chart"><h2>Collection value over time</h2><svg id="histsvg" viewBox="0 0 420 200"></svg><div class="tip" id="histtip">Each price refresh adds a point</div></div>
+  </div>
+
+  <div class="drawer" id="drawer" hidden>
+    <h2 id="drawer-title">Add card</h2>
+    <div class="lookup">
+      <div class="filter"><input id="q" placeholder="Search SportsCardsPro: 1989 Upper Deck Griffey" style="flex:1 1 220px"><button type="button" id="search">Look up</button></div>
+      <ul id="results"></ul>
+      <div class="hint" id="lookuphint">Needs a SportsCardsPro API token (Settings below). Without one, fill the fields by hand and use the eBay comps link on each row.</div>
+    </div>
+    <div class="grid">
+      <label class="half">Year<input id="f-year" type="number" placeholder="1989"></label>
+      <label>Set<input id="f-set" placeholder="Upper Deck"></label>
+      <label>Player<input id="f-player" placeholder="Ken Griffey Jr."></label>
+      <label class="half">Card #<input id="f-num" placeholder="1"></label>
+      <label>Variation<input id="f-var" placeholder="Base, Refractor…"></label>
+      <label class="half">Grade<select id="f-grade">
+        <option value="raw">Raw</option><option value="psa10">PSA 10</option><option value="psa9">PSA 9</option><option value="psa8">PSA 8</option><option value="psa7">PSA 7</option><option value="bgs10">BGS 10</option><option value="sgc10">SGC 10</option></select></label>
+      <label class="half">Qty<input id="f-qty" type="number" min="1" value="1"></label>
+      <label class="half">Paid (each, $)<input id="f-cost" type="number" step="0.01" placeholder="0.00"></label>
+      <label class="half">Value (each, $)<input id="f-value" type="number" step="0.01" placeholder="0.00"></label>
+      <label>Notes<input id="f-notes" placeholder="Pulled from a 1989 wax box"></label>
+    </div>
+    <input id="f-scp" type="hidden">
+    <div class="actions"><button type="button" id="cancel">Cancel</button><button type="button" id="delete" hidden>Delete</button><button type="button" id="save" class="btn primary">Save</button></div>
+  </div>
+
+  <div class="drawer" id="iobox" hidden>
+    <h2>Import / export</h2>
+    <p style="margin:0;font-size:.88rem">The collection lives in this browser. Copy the JSON below to back it up, or paste a backup and import. Exported file includes value history.</p>
+    <textarea id="iotext"></textarea>
+    <div class="actions"><button type="button" id="iocopy">Copy</button><button type="button" id="iodownload">Download .json</button><button type="button" id="ioimport" class="btn primary">Import pasted JSON</button><button type="button" id="ioclose">Close</button></div>
+  </div>
+
+  <div class="filter">
+    <input id="filtertext" placeholder="Filter by player, set, year…" style="flex:1 1 200px">
+    <select id="filtergrade"><option value="">All grades</option><option value="raw">Raw</option><option value="psa10">PSA 10</option><option value="psa9">PSA 9</option><option value="psa8">PSA 8</option><option value="psa7">PSA 7</option><option value="bgs10">BGS 10</option><option value="sgc10">SGC 10</option></select>
+    <select id="sortsel"><option value="value:-1">Value ↓</option><option value="value:1">Value ↑</option><option value="gain:-1">Gain ↓</option><option value="gain:1">Gain ↑</option><option value="year:1">Year ↑</option><option value="year:-1">Year ↓</option><option value="player:1">Player A–Z</option></select>
+    <span class="eyebrow" id="count"></span>
+  </div>
+
+  <div class="tablewrap"><table id="tbl">
+    <thead><tr>
+      <th data-k="year">Card</th><th data-k="grade">Grade</th><th class="num" data-k="qty">Qty</th>
+      <th class="num" data-k="cost">Paid</th><th class="num" data-k="value">Value</th><th class="num" data-k="gain">Gain</th><th></th>
+    </tr></thead><tbody></tbody>
+  </table></div>
+
+  <details class="settings">
+    <summary>Settings</summary>
+    <p>SportsCardsPro API token (paid subscription; found under Subscription → API/Download). Stored only in this browser.</p>
+    <input id="token" placeholder="40-character token" autocomplete="off">
+    <p style="margin-bottom:0"><label><input type="checkbox" id="showsample"> Show sample cards when the collection is empty</label></p>
+  </details>
+
+  <footer>Prices from SportsCardsPro when a token is set (ungraded = loose, PSA 10 = manual-only, PSA 9 = graded, PSA 8 = new, PSA 7 = cib, BGS 10 = bgs-10, SGC 10 = condition-18). Otherwise values are whatever you enter. Not financial advice; cardboard is cardboard.</footer>
+</div>
+
+<script>
+// ---------- storage ----------
+const KEY = "cardbox.v1";
+const GRADES = { raw: "Raw", psa10: "PSA 10", psa9: "PSA 9", psa8: "PSA 8", psa7: "PSA 7", bgs10: "BGS 10", sgc10: "SGC 10" };
+const PRICE_FIELD = { raw: "loose-price", psa10: "manual-only-price", psa9: "graded-price", psa8: "new-price", psa7: "cib-price", bgs10: "bgs-10-price", sgc10: "condition-18-price" };
+const SAMPLE = {
+  cards: [
+    { id: "s1", year: 1989, set: "Upper Deck", player: "Ken Griffey Jr.", num: "1", variation: "Base", grade: "psa9", qty: 1, cost: 95, value: 140, notes: "sample" },
+    { id: "s2", year: 1993, set: "SP", player: "Derek Jeter", num: "279", variation: "Foil", grade: "raw", qty: 1, cost: 220, value: 310, notes: "sample" },
+    { id: "s3", year: 2011, set: "Topps Update", player: "Mike Trout", num: "US175", variation: "Base", grade: "psa10", qty: 1, cost: 650, value: 900, notes: "sample" },
+    { id: "s4", year: 1987, set: "Topps", player: "Barry Bonds", num: "320", variation: "Base", grade: "raw", qty: 4, cost: 3, value: 2, notes: "sample" },
+    { id: "s5", year: 2018, set: "Bowman Chrome", player: "Shohei Ohtani", num: "BCP60", variation: "Refractor", grade: "psa9", qty: 1, cost: 400, value: 360, notes: "sample" },
+    { id: "s6", year: 1980, set: "Topps", player: "Rickey Henderson", num: "482", variation: "Base", grade: "psa8", qty: 1, cost: 180, value: 210, notes: "sample" },
+  ],
+  history: [[Date.now() - 90 * 864e5, 1780], [Date.now() - 60 * 864e5, 1810], [Date.now() - 30 * 864e5, 1905], [Date.now() - 7 * 864e5, 1870], [Date.now(), 1928]],
+};
+let data = { cards: [], history: [] }, usingSample = false;
+function load() { try { const s = localStorage.getItem(KEY); if (s) data = JSON.parse(s); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} }
+function token() { try { return localStorage.getItem("cardbox.token") || ""; } catch (e) { return ""; } }
+function pref(k) { try { return localStorage.getItem("cardbox." + k); } catch (e) { return null; } }
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const money = n => (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const money2 = n => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const cardTitle = c => `${c.year || ""} ${c.set || ""} ${c.player || ""}${c.num ? " #" + c.num : ""}`.trim();
+const ebayUrl = c => "https://www.ebay.com/sch/i.html?LH_Sold=1&LH_Complete=1&_nkw=" + encodeURIComponent(`${cardTitle(c)} ${c.variation && c.variation !== "Base" ? c.variation : ""} ${c.grade === "raw" ? "" : GRADES[c.grade]}`.trim());
+function cards() { return usingSample ? SAMPLE.cards : data.cards; }
+function history() { return usingSample ? SAMPLE.history : data.history; }
+
+// ---------- SportsCardsPro ----------
+async function scp(path, params) {
+  const t = token(); if (!t) throw new Error("no token");
+  const u = new URL("https://www.sportscardspro.com/api/" + path); u.searchParams.set("t", t);
+  for (const k in params) u.searchParams.set(k, params[k]);
+  const r = await fetch(u); const j = await r.json();
+  if (j.status !== "success") throw new Error(j["error-message"] || "API error");
+  return j;
+}
+async function refreshPrices() {
+  if (usingSample) { note("Sample cards don't refresh. Add your own cards first."); return; }
+  if (!token()) { note("Add a SportsCardsPro token in Settings to refresh prices automatically. Until then, update values by hand from eBay comps."); return; }
+  const linked = data.cards.filter(c => c.scp);
+  let ok = 0, fail = 0;
+  for (const c of linked) {
+    try { const p = await scp("product", { id: c.scp }); const cents = p[PRICE_FIELD[c.grade]]; if (cents != null) { c.value = cents / 100; c.priced = Date.now(); ok++; } else fail++; }
+    catch (e) { fail++; }
+  }
+  snapshot(); save(); render();
+  note(`Refreshed ${ok} card${ok === 1 ? "" : "s"}${fail ? `, ${fail} had no price for that grade` : ""}. ${data.cards.length - linked.length} unlinked cards keep their manual values.`);
+}
+function snapshot() {
+  const total = data.cards.reduce((s, c) => s + (c.value || 0) * (c.qty || 1), 0);
+  data.history.push([Date.now(), Math.round(total)]);
+  if (data.history.length > 400) data.history = data.history.slice(-400);
+}
+
+// ---------- rendering ----------
+function note(msg) { const n = $("note"); n.hidden = !msg; n.textContent = msg || ""; }
+let sort = { k: "value", dir: -1 };
+function render() {
+  const cs = cards();
+  const totalCost = cs.reduce((s, c) => s + (c.cost || 0) * (c.qty || 1), 0);
+  const totalVal = cs.reduce((s, c) => s + (c.value || 0) * (c.qty || 1), 0);
+  const gain = totalVal - totalCost, pct = totalCost ? gain / totalCost * 100 : 0;
+  const count = cs.reduce((s, c) => s + (c.qty || 1), 0);
+  const top = [...cs].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
+  $("stats").innerHTML = `
+    <div class="stat"><div class="v">${money(totalVal)}</div><div class="s">Collection value</div></div>
+    <div class="stat"><div class="v">${money(totalCost)}</div><div class="s">Cost basis</div></div>
+    <div class="stat"><div class="v ${gain >= 0 ? "up" : "down"}">${gain >= 0 ? "+" : ""}${money(gain)} <small>(${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)</small></div><div class="s">Unrealized gain</div></div>
+    <div class="stat"><div class="v">${count}</div><div class="s">Cards (${cs.length} lines)</div></div>
+    <div class="stat"><div class="v">${top ? money(top.value || 0) : "—"}</div><div class="s">${top ? esc(top.player) : "Top card"}</div></div>`;
+  renderTable(); renderBySet(); renderHistory();
+  $("count").textContent = usingSample ? "Sample collection" : "";
+}
+function renderTable() {
+  const ft = $("filtertext").value.toLowerCase(), fg = $("filtergrade").value;
+  let rows = cards().filter(c => (!fg || c.grade === fg) && (!ft || (cardTitle(c) + " " + (c.variation || "") + " " + (c.notes || "")).toLowerCase().includes(ft)));
+  const val = c => ({ year: c.year || 0, player: c.player || "", grade: c.grade, qty: c.qty || 1, cost: (c.cost || 0) * (c.qty || 1), value: (c.value || 0) * (c.qty || 1), gain: ((c.value || 0) - (c.cost || 0)) * (c.qty || 1) })[sort.k];
+  rows.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === "string" ? x.localeCompare(y) : x - y) * sort.dir; });
+  $("tbl").querySelector("tbody").innerHTML = rows.map(c => {
+    const g = ((c.value || 0) - (c.cost || 0)) * (c.qty || 1);
+    return `<tr data-id="${c.id}">
+      <td class="card">${c.year ? c.year + " " : ""}${esc(c.player)}<span class="sub">${esc(c.set)}${c.num ? " #" + esc(c.num) : ""}${c.variation && c.variation !== "Base" ? " · " + esc(c.variation) : ""}${c.scp ? " · linked" : ""}</span></td>
+      <td data-l="Grade">${GRADES[c.grade] || c.grade}</td>
+      <td class="num" data-l="Qty">${c.qty || 1}</td>
+      <td class="num" data-l="Paid">${money2(c.cost)}</td>
+      <td class="num value" data-l="Value">${money2(c.value)}${c.priced ? `<span class="sub">${new Date(c.priced).toLocaleDateString()}</span>` : ""}</td>
+      <td class="num gain ${g >= 0 ? "up" : "down"}" data-l="Gain">${g >= 0 ? "+" : ""}${money2(g)}</td>
+      <td class="act"><a class="btn rowbtn" href="${ebayUrl(c)}" target="_blank" rel="noopener">eBay comps</a> <button type="button" class="rowbtn edit">Edit</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="7" style="color:var(--muted)">No cards yet. Add one, or turn on sample cards in Settings to see the layout.</td></tr>`;
+}
+function renderBySet() {
+  const by = {}; cards().forEach(c => { const k = `${c.year || ""} ${c.set || ""}`.trim() || "Unknown"; by[k] = (by[k] || 0) + (c.value || 0) * (c.qty || 1); });
+  const items = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const svg = $("bysetsvg"); if (!items.length) { svg.innerHTML = ""; return; }
+  const W = 420, rowH = 22, H = items.length * rowH + 12, labelW = 150, max = Math.max(...items.map(i => i[1]), 1);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = items.map(([k, v], i) => {
+    const y = 6 + i * rowH, w = Math.max((W - labelW - 70) * v / max, 2);
+    return `<g data-v="${v}" data-k="${esc(k)}">
+      <text x="${labelW - 8}" y="${y + 14}" text-anchor="end" fill="var(--fg)">${esc(k.length > 22 ? k.slice(0, 21) + "…" : k)}</text>
+      <rect x="${labelW}" y="${y + 3}" width="${w}" height="${rowH - 8}" rx="3" fill="var(--accent)"/>
+      <text x="${labelW + w + 6}" y="${y + 14}" fill="var(--muted)">${money(v)}</text>
+      <rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>
+    </g>`;
+  }).join("");
+  svg.querySelectorAll("g").forEach(g => g.addEventListener("mouseenter", () => $("bysettip").textContent = `${g.dataset.k}: ${money(+g.dataset.v)}`));
+}
+function renderHistory() {
+  const h = history(); const svg = $("histsvg");
+  if (h.length < 2) { svg.innerHTML = `<text x="10" y="30" fill="var(--muted)">Refresh prices a few times to build a history.</text>`; return; }
+  const W = 420, H = 200, L = 56, R = 12, T = 12, B = 28;
+  const t0 = h[0][0], t1 = h.at(-1)[0], vs = h.map(p => p[1]), lo = Math.min(...vs) * 0.95, hi = Math.max(...vs) * 1.05;
+  const x = t => L + (W - L - R) * (t - t0) / Math.max(t1 - t0, 1), y = v => T + (H - T - B) * (1 - (v - lo) / Math.max(hi - lo, 1));
+  const line = h.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" ");
+  const ticks = [lo, (lo + hi) / 2, hi].map(v => Math.round(v));
+  const fd = t => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  svg.innerHTML = `
+    ${ticks.map(v => `<g><line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" fill="var(--muted)">${money(v)}</text></g>`).join("")}
+    <text x="${L}" y="${H - 8}" fill="var(--muted)">${fd(t0)}</text><text x="${W - R}" y="${H - 8}" text-anchor="end" fill="var(--muted)">${fd(t1)}</text>
+    <path d="${line} L${x(t1).toFixed(1)} ${H - B} L${x(t0).toFixed(1)} ${H - B} Z" fill="var(--accent-soft)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+    ${h.map(p => `<circle cx="${x(p[0]).toFixed(1)}" cy="${y(p[1]).toFixed(1)}" r="9" fill="transparent" data-t="${p[0]}" data-v="${p[1]}"/>`).join("")}
+    <circle cx="${x(t1).toFixed(1)}" cy="${y(h.at(-1)[1]).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+  svg.querySelectorAll("circle[data-t]").forEach(c => c.addEventListener("mouseenter", () => $("histtip").textContent = `${fd(+c.dataset.t)}: ${money(+c.dataset.v)}`));
+}
+
+// ---------- drawer ----------
+let editing = null;
+function openDrawer(c) {
+  editing = c || null; $("drawer").hidden = false; $("iobox").hidden = true; document.body.classList.add("sheet-open");
+  $("drawer-title").textContent = c ? "Edit card" : "Add card"; $("delete").hidden = !c;
+  const f = c || {}; $("f-year").value = f.year || ""; $("f-set").value = f.set || ""; $("f-player").value = f.player || ""; $("f-num").value = f.num || "";
+  $("f-var").value = f.variation || ""; $("f-grade").value = f.grade || "raw"; $("f-qty").value = f.qty || 1; $("f-cost").value = f.cost ?? ""; $("f-value").value = f.value ?? ""; $("f-notes").value = f.notes || ""; $("f-scp").value = f.scp || "";
+  $("results").innerHTML = ""; $("q").value = c ? cardTitle(c) : "";
+  $("lookuphint").textContent = token() ? "Search returns the best 20 matches; picking one links the card so Refresh prices updates it." : "Needs a SportsCardsPro API token (Settings below). Without one, fill the fields by hand and use the eBay comps link on each row.";
+  $("drawer").scrollTop = 0; if (window.innerWidth > 640) $("drawer").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function closeDrawer() { $("drawer").hidden = true; editing = null; document.body.classList.remove("sheet-open"); }
+function saveCard() {
+  if (usingSample) { usingSample = false; }
+  const c = editing || { id: uid() };
+  Object.assign(c, { year: +$("f-year").value || null, set: $("f-set").value.trim(), player: $("f-player").value.trim(), num: $("f-num").value.trim(), variation: $("f-var").value.trim() || "Base",
+    grade: $("f-grade").value, qty: Math.max(1, +$("f-qty").value || 1), cost: +$("f-cost").value || 0, value: +$("f-value").value || 0, notes: $("f-notes").value.trim(), scp: $("f-scp").value || null });
+  if (!c.player && !c.set) { note("A card needs at least a player or a set."); return; }
+  if (!editing) data.cards.push(c);
+  save(); closeDrawer(); note(""); render();
+}
+async function lookup() {
+  const q = $("q").value.trim(); if (!q) return;
+  const ul = $("results");
+  if (!token()) { ul.innerHTML = `<li class="hint">No token set. Add one in Settings, or fill the fields manually.</li>`; return; }
+  ul.innerHTML = `<li class="hint">Searching…</li>`;
+  try {
+    const j = await scp("products", { q });
+    ul.innerHTML = (j.products || []).map(p => `<li><button type="button" data-id="${esc(p.id)}" data-name="${esc(p["product-name"])}" data-set="${esc(p["console-name"])}">${esc(p["console-name"])} — ${esc(p["product-name"])}</button></li>`).join("") || `<li class="hint">No matches.</li>`;
+    ul.querySelectorAll("button").forEach(b => b.addEventListener("click", () => pick(b.dataset)));
+  } catch (e) { ul.innerHTML = `<li class="hint">Lookup failed: ${esc(e.message)}</li>`; }
+}
+async function pick(d) {
+  // console-name looks like "Baseball Cards 1989 Upper Deck"; product-name like "Ken Griffey Jr. #1 [Error]"
+  const m = /^(?:\w+ Cards )?(\d{4})\s+(.*)$/.exec(d.set) || [];
+  const pm = /^(.*?)\s*#(\S+)\s*(?:\[(.*)\])?$/.exec(d.name) || [];
+  $("f-year").value = m[1] || ""; $("f-set").value = m[2] || d.set; $("f-player").value = pm[1] || d.name; $("f-num").value = pm[2] || ""; $("f-var").value = pm[3] || "";
+  $("f-scp").value = d.id;
+  try { const p = await scp("product", { id: d.id }); const cents = p[PRICE_FIELD[$("f-grade").value]]; if (cents != null) $("f-value").value = (cents / 100).toFixed(2); } catch (e) {}
+  $("results").innerHTML = `<li class="hint">Linked to SportsCardsPro #${esc(d.id)}. Change the grade and the value re-fetches on save-refresh.</li>`;
+}
+
+// ---------- import / export ----------
+function openIO() { $("iobox").hidden = false; $("drawer").hidden = true; $("iotext").value = JSON.stringify(data, null, 2); $("iobox").scrollIntoView({ behavior: "smooth" }); }
+async function copyIO() { const t = $("iotext"); try { await navigator.clipboard.writeText(t.value); note("Copied."); } catch (e) { t.select(); note("Select-all and copy from the box."); } }
+function downloadIO() { try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([$("iotext").value], { type: "application/json" })); a.download = "cardbox-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); } catch (e) { note("Download is blocked here; copy the JSON instead."); } }
+function importIO() { try { const j = JSON.parse($("iotext").value); if (!Array.isArray(j.cards)) throw 0; data = { cards: j.cards, history: Array.isArray(j.history) ? j.history : [] }; usingSample = false; save(); render(); note(`Imported ${data.cards.length} cards.`); $("iobox").hidden = true; } catch (e) { note("That isn't a Cardbox JSON export."); } }
+
+// ---------- wiring ----------
+load();
+usingSample = data.cards.length === 0 && pref("sample") !== "0";
+$("showsample").checked = pref("sample") !== "0";
+$("token").value = token();
+$("token").addEventListener("change", () => { try { localStorage.setItem("cardbox.token", $("token").value.trim()); } catch (e) {} });
+$("showsample").addEventListener("change", e => { try { localStorage.setItem("cardbox.sample", e.target.checked ? "1" : "0"); } catch (x) {} usingSample = data.cards.length === 0 && e.target.checked; render(); });
+$("add").addEventListener("click", () => openDrawer(null));
+$("cancel").addEventListener("click", closeDrawer);
+$("save").addEventListener("click", saveCard);
+$("delete").addEventListener("click", () => { if (!editing) return; data.cards = data.cards.filter(c => c.id !== editing.id); save(); closeDrawer(); render(); });
+$("search").addEventListener("click", lookup); $("q").addEventListener("keydown", e => { if (e.key === "Enter") lookup(); });
+$("refresh").addEventListener("click", refreshPrices);
+$("io").addEventListener("click", openIO); $("ioclose").addEventListener("click", () => $("iobox").hidden = true);
+$("iocopy").addEventListener("click", copyIO); $("iodownload").addEventListener("click", downloadIO); $("ioimport").addEventListener("click", importIO);
+$("filtertext").addEventListener("input", renderTable); $("filtergrade").addEventListener("change", renderTable);
+$("sortsel").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); sort = { k, dir: +d }; renderTable(); });
+$("tbl").addEventListener("click", e => {
+  const th = e.target.closest("th[data-k]"); if (th) { sort = { k: th.dataset.k, dir: sort.k === th.dataset.k ? -sort.dir : -1 }; renderTable(); return; }
+  if (e.target.classList.contains("edit")) { const id = e.target.closest("tr").dataset.id; const c = cards().find(x => x.id === id); if (usingSample) { note("Sample cards can't be edited. Add your own card to start a real collection."); return; } openDrawer(c); }
+});
+render();
+if (usingSample) note("Showing a sample collection so you can see the layout. Add a card to start your own; the samples disappear.");
+</script>
