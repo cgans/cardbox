@@ -9,7 +9,7 @@ Baseball card collection tracker. Single static page, no build step.
 
 ## Deploy
 
-Cloudflare Workers (static assets), connected to this repo. `wrangler.toml` serves `public/`; no build command.
+Cloudflare Workers, connected to this repo. `src/worker.js` serves `public/` and proxies SportsCardsPro at `/api/scp/*` using the `SCP_TOKEN` secret (set in the Worker dashboard under Settings → Variables and Secrets) unless the visitor supplies their own token.
 
 ## Local
 

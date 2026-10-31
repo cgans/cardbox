@@ -113,6 +113,13 @@ footer { font-size: .75rem; color: var(--muted) }
 
   <div class="note" id="note" hidden></div>
 
+  <div class="drawer" id="welcome" hidden>
+    <h2>Your SportsCardsPro token</h2>
+    <p style="margin:0;font-size:.92rem">Cardbox looks up card prices through SportsCardsPro. Paste your own API token (paid subscription, under Subscription → API/Download) so lookups run on your account. It stays in this browser.</p>
+    <input id="w-token" placeholder="40-character token" autocomplete="off" style="font:inherit;font-family:var(--mono);font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
+    <div class="actions"><button type="button" id="w-skip">Use shared default for now</button><button type="button" id="w-save" class="btn primary">Save token</button></div>
+  </div>
+
   <div class="stats" id="stats"></div>
 
   <div class="charts">
@@ -167,12 +174,13 @@ footer { font-size: .75rem; color: var(--muted) }
 
   <details class="settings">
     <summary>Settings</summary>
-    <p>SportsCardsPro API token (paid subscription; found under Subscription → API/Download). Stored only in this browser.</p>
+    <p>SportsCardsPro API token (paid subscription; found under Subscription → API/Download). Stored only in this browser and sent only to this site's own proxy.</p>
     <input id="token" placeholder="40-character token" autocomplete="off">
+    <p id="tokenstatus" style="color:var(--muted);margin:6px 0 0"></p>
     <p style="margin-bottom:0"><label><input type="checkbox" id="showsample"> Show sample cards when the collection is empty</label></p>
   </details>
 
-  <footer>Prices from SportsCardsPro when a token is set (ungraded = loose, PSA 10 = manual-only, PSA 9 = graded, PSA 8 = new, PSA 7 = cib, BGS 10 = bgs-10, SGC 10 = condition-18). Otherwise values are whatever you enter. Not financial advice; cardboard is cardboard.</footer>
+  <footer>Prices from SportsCardsPro via this site's proxy (ungraded = loose, PSA 10 = manual-only, PSA 9 = graded, PSA 8 = new, PSA 7 = cib, BGS 10 = bgs-10, SGC 10 = condition-18). Otherwise values are whatever you enter. Not financial advice; cardboard is cardboard.</footer>
 </div>
 
 <script>
@@ -209,17 +217,20 @@ function cards() { return usingSample ? SAMPLE.cards : data.cards; }
 function history() { return usingSample ? SAMPLE.history : data.history; }
 
 // ---------- SportsCardsPro ----------
+let hasDefault = false;
+function canPrice() { return Boolean(token()) || hasDefault; }
 async function scp(path, params) {
-  const t = token(); if (!t) throw new Error("no token");
-  const u = new URL("https://www.sportscardspro.com/api/" + path); u.searchParams.set("t", t);
+  if (!canPrice()) throw new Error("no token");
+  const u = new URL("/api/scp/" + path, location.href);
   for (const k in params) u.searchParams.set(k, params[k]);
-  const r = await fetch(u); const j = await r.json();
+  const h = {}; const t = token(); if (t) h["X-SCP-Token"] = t;
+  const r = await fetch(u, { headers: h }); const j = await r.json();
   if (j.status !== "success") throw new Error(j["error-message"] || "API error");
   return j;
 }
 async function refreshPrices() {
   if (usingSample) { note("Sample cards don't refresh. Add your own cards first."); return; }
-  if (!token()) { note("Add a SportsCardsPro token in Settings to refresh prices automatically. Until then, update values by hand from eBay comps."); return; }
+  if (!canPrice()) { note("Add a SportsCardsPro token in Settings to refresh prices automatically. Until then, update values by hand from eBay comps."); return; }
   const linked = data.cards.filter(c => c.scp);
   let ok = 0, fail = 0;
   for (const c of linked) {
@@ -316,7 +327,7 @@ function openDrawer(c) {
   const f = c || {}; $("f-year").value = f.year || ""; $("f-set").value = f.set || ""; $("f-player").value = f.player || ""; $("f-num").value = f.num || "";
   $("f-var").value = f.variation || ""; $("f-grade").value = f.grade || "raw"; $("f-qty").value = f.qty || 1; $("f-cost").value = f.cost ?? ""; $("f-value").value = f.value ?? ""; $("f-notes").value = f.notes || ""; $("f-scp").value = f.scp || "";
   $("results").innerHTML = ""; $("q").value = c ? cardTitle(c) : "";
-  $("lookuphint").textContent = token() ? "Search returns the best 20 matches; picking one links the card so Refresh prices updates it." : "Needs a SportsCardsPro API token (Settings below). Without one, fill the fields by hand and use the eBay comps link on each row.";
+  $("lookuphint").textContent = canPrice() ? (token() ? "Search returns the best 20 matches; picking one links the card so Refresh prices updates it." : "Using the shared default token. Add your own in Settings to use your own subscription.") : "Needs a SportsCardsPro API token (Settings below). Without one, fill the fields by hand and use the eBay comps link on each row.";
   $("drawer").scrollTop = 0; if (window.innerWidth > 640) $("drawer").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function closeDrawer() { $("drawer").hidden = true; editing = null; document.body.classList.remove("sheet-open"); }
@@ -332,7 +343,7 @@ function saveCard() {
 async function lookup() {
   const q = $("q").value.trim(); if (!q) return;
   const ul = $("results");
-  if (!token()) { ul.innerHTML = `<li class="hint">No token set. Add one in Settings, or fill the fields manually.</li>`; return; }
+  if (!canPrice()) { ul.innerHTML = `<li class="hint">No token set. Add one in Settings, or fill the fields manually.</li>`; return; }
   ul.innerHTML = `<li class="hint">Searching…</li>`;
   try {
     const j = await scp("products", { q });
@@ -361,7 +372,15 @@ load();
 usingSample = data.cards.length === 0 && pref("sample") !== "0";
 $("showsample").checked = pref("sample") !== "0";
 $("token").value = token();
-$("token").addEventListener("change", () => { try { localStorage.setItem("cardbox.token", $("token").value.trim()); } catch (e) {} });
+function tokenStatus() { $("tokenstatus").textContent = token() ? "Using your token." : hasDefault ? "No token of your own; using the shared default." : "No token set; price lookups are off."; }
+$("token").addEventListener("change", () => { try { localStorage.setItem("cardbox.token", $("token").value.trim()); } catch (e) {} tokenStatus(); });
+function setToken(v) { try { localStorage.setItem("cardbox.token", v); } catch (e) {} $("token").value = v; tokenStatus(); }
+$("w-save").addEventListener("click", () => { const v = $("w-token").value.trim(); if (v.length < 20) { note("That doesn't look like a SportsCardsPro token (expected ~40 characters)."); return; } setToken(v); $("welcome").hidden = true; note(""); });
+$("w-skip").addEventListener("click", () => { try { localStorage.setItem("cardbox.welcomed", "1"); } catch (e) {} $("welcome").hidden = true; });
+fetch("/api/config").then(r => r.json()).then(c => { hasDefault = Boolean(c.hasDefault); }).catch(() => {}).finally(() => {
+  tokenStatus();
+  if (!token() && pref("welcomed") !== "1") { $("welcome").hidden = false; }
+});
 $("showsample").addEventListener("change", e => { try { localStorage.setItem("cardbox.sample", e.target.checked ? "1" : "0"); } catch (x) {} usingSample = data.cards.length === 0 && e.target.checked; render(); });
 $("add").addEventListener("click", () => openDrawer(null));
 $("cancel").addEventListener("click", closeDrawer);
