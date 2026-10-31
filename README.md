@@ -1,6 +1,6 @@
-# Cardbox
+# Jamo's Dugout
 
-Baseball card collection tracker. Single static page, no build step.
+Baseball card collection tracker built for Jameson (Jamo) to log and value his cards and share with family and friends. Single static page, no build step.
 
 - Cost basis, current value, unrealized gain, value by set, value history
 - Optional [SportsCardsPro](https://sportscardspro.com/api-documentation) lookup and price refresh (paid API token, entered in Settings and stored only in the browser)

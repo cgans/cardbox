@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cardbox</title>
+<title>Jamo's Dugout</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -103,7 +103,7 @@ footer { font-size: .75rem; color: var(--muted) }
 
 <div class="wrap">
   <header>
-    <h1>Cardbox</h1>
+    <h1>Jamo's Dugout</h1>
     <div class="tools">
       <button type="button" id="add" class="btn primary">Add card</button>
       <button type="button" id="refresh">Refresh prices</button>
@@ -115,7 +115,7 @@ footer { font-size: .75rem; color: var(--muted) }
 
   <div class="drawer" id="welcome" hidden>
     <h2>Your SportsCardsPro token</h2>
-    <p style="margin:0;font-size:.92rem">Cardbox looks up card prices through SportsCardsPro. Paste your own API token (paid subscription, under Subscription → API/Download) so lookups run on your account. It stays in this browser.</p>
+    <p style="margin:0;font-size:.92rem">Jamo's Dugout looks up card prices through SportsCardsPro. Paste your own API token (paid subscription, under Subscription → API/Download) so lookups run on your account. It stays in this browser.</p>
     <input id="w-token" placeholder="40-character token" autocomplete="off" style="font:inherit;font-family:var(--mono);font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
     <div class="actions"><button type="button" id="w-skip">Use shared default for now</button><button type="button" id="w-save" class="btn primary">Save token</button></div>
   </div>
@@ -392,8 +392,8 @@ async function pick(d) {
 // ---------- import / export ----------
 function openIO() { $("iobox").hidden = false; $("drawer").hidden = true; $("iotext").value = JSON.stringify(data, null, 2); $("iobox").scrollIntoView({ behavior: "smooth" }); }
 async function copyIO() { const t = $("iotext"); try { await navigator.clipboard.writeText(t.value); note("Copied."); } catch (e) { t.select(); note("Select-all and copy from the box."); } }
-function downloadIO() { try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([$("iotext").value], { type: "application/json" })); a.download = "cardbox-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); } catch (e) { note("Download is blocked here; copy the JSON instead."); } }
-function importIO() { try { const j = JSON.parse($("iotext").value); if (!Array.isArray(j.cards)) throw 0; data = { cards: j.cards, history: Array.isArray(j.history) ? j.history : [] }; usingSample = false; save(); render(); note(`Imported ${data.cards.length} cards.`); $("iobox").hidden = true; } catch (e) { note("That isn't a Cardbox JSON export."); } }
+function downloadIO() { try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([$("iotext").value], { type: "application/json" })); a.download = "jamos-dugout-" + new Date().toISOString().slice(0, 10) + ".json"; a.click(); } catch (e) { note("Download is blocked here; copy the JSON instead."); } }
+function importIO() { try { const j = JSON.parse($("iotext").value); if (!Array.isArray(j.cards)) throw 0; data = { cards: j.cards, history: Array.isArray(j.history) ? j.history : [] }; usingSample = false; save(); render(); note(`Imported ${data.cards.length} cards.`); $("iobox").hidden = true; } catch (e) { note("That isn't a Jamo's Dugout JSON export."); } }
 
 // ---------- wiring ----------
 load();
