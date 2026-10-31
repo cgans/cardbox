@@ -147,7 +147,7 @@ footer { font-size: .75rem; color: var(--muted) }
       <label class="half">Value (each, $)<input id="f-value" type="number" step="0.01" placeholder="0.00"></label>
       <label>Notes<input id="f-notes" placeholder="Pulled from a 1989 wax box"></label>
     </div>
-    <input id="f-scp" type="hidden">
+    <input id="f-scp" type="hidden"><input id="f-scpkey" type="hidden">
     <div class="actions"><button type="button" id="cancel">Cancel</button><button type="button" id="delete" hidden>Delete</button><button type="button" id="save" class="btn primary">Save</button></div>
   </div>
 
@@ -325,7 +325,7 @@ function openDrawer(c) {
   editing = c || null; $("drawer").hidden = false; $("iobox").hidden = true; document.body.classList.add("sheet-open");
   $("drawer-title").textContent = c ? "Edit card" : "Add card"; $("delete").hidden = !c;
   const f = c || {}; $("f-year").value = f.year || ""; $("f-set").value = f.set || ""; $("f-player").value = f.player || ""; $("f-num").value = f.num || "";
-  $("f-var").value = f.variation || ""; $("f-grade").value = f.grade || "raw"; $("f-qty").value = f.qty || 1; $("f-cost").value = f.cost ?? ""; $("f-value").value = f.value ?? ""; $("f-notes").value = f.notes || ""; $("f-scp").value = f.scp || "";
+  $("f-var").value = f.variation || ""; $("f-grade").value = f.grade || "raw"; $("f-qty").value = f.qty || 1; $("f-cost").value = f.cost ?? ""; $("f-value").value = f.value ?? ""; $("f-notes").value = f.notes || ""; $("f-scp").value = f.scp || ""; $("f-scpkey").value = f.scpKey || "";
   $("results").innerHTML = ""; $("q").value = c ? cardTitle(c) : "";
   $("lookuphint").textContent = canPrice() ? (token() ? "Search returns the best 20 matches; picking one links the card so Refresh prices updates it." : "Using the shared default token. Add your own in Settings to use your own subscription.") : "Needs a SportsCardsPro API token (Settings below). Without one, fill the fields by hand and use the eBay comps link on each row.";
   $("drawer").scrollTop = 0; if (window.innerWidth > 640) $("drawer").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -333,10 +333,10 @@ function openDrawer(c) {
 function closeDrawer() { $("drawer").hidden = true; editing = null; document.body.classList.remove("sheet-open"); }
 async function saveCard() {
   if (usingSample) { usingSample = false; }
-  if ($("f-scp").value && canPrice()) { $("save").disabled = true; await fillPrice(); $("save").disabled = false; }
+  if (canPrice()) { $("save").disabled = true; note(""); await fillPrice(); $("save").disabled = false; }
   const c = editing || { id: uid() };
   Object.assign(c, { year: +$("f-year").value || null, set: $("f-set").value.trim(), player: $("f-player").value.trim(), num: $("f-num").value.trim(), variation: $("f-var").value.trim() || "Base",
-    grade: $("f-grade").value, qty: Math.max(1, +$("f-qty").value || 1), cost: +$("f-cost").value || 0, value: +$("f-value").value || 0, notes: $("f-notes").value.trim(), scp: $("f-scp").value || null });
+    grade: $("f-grade").value, qty: Math.max(1, +$("f-qty").value || 1), cost: +$("f-cost").value || 0, value: +$("f-value").value || 0, notes: $("f-notes").value.trim(), scp: $("f-scp").value || null, scpKey: $("f-scpkey").value || null });
   if (!c.player && !c.set) { note("A card needs at least a player or a set."); return; }
   if (c.scp && c.value) c.priced = Date.now();
   if (!editing) data.cards.push(c);
@@ -357,7 +357,22 @@ async function priceFor(scpId, grade) {
   const p = await scp("product", { id: scpId }); const cents = p[PRICE_FIELD[grade]];
   return cents == null ? null : cents / 100;
 }
+function formKey() { return [$("f-year").value, $("f-set").value, $("f-player").value, $("f-num").value, $("f-var").value].map(v => v.trim().toLowerCase()).join("|"); }
+function formQuery() { return `${$("f-year").value} ${$("f-set").value} ${$("f-player").value}${$("f-num").value ? " #" + $("f-num").value : ""}`.replace(/\s+/g, " ").trim(); }
+// Re-resolve the SportsCardsPro link when the card's identity fields changed since it was linked.
+async function relink() {
+  if (!canPrice()) return;
+  const key = formKey();
+  if ($("f-scp").value && $("f-scpkey").value === key) return;
+  const q = formQuery(); if (q.length < 4) return;
+  try {
+    const p = await scp("product", { q });
+    $("f-scp").value = p.id; $("f-scpkey").value = key;
+    note(`Matched to SportsCardsPro: ${p["console-name"]} — ${p["product-name"]}. Wrong card? Use Look up to pick another.`);
+  } catch (e) { $("f-scp").value = ""; $("f-scpkey").value = ""; note("No SportsCardsPro match for that card; value stays as entered."); }
+}
 async function fillPrice() {
+  await relink();
   const id = $("f-scp").value; if (!id || !canPrice()) return;
   $("f-value").placeholder = "fetching…";
   try { const v = await priceFor(id, $("f-grade").value); if (v != null) $("f-value").value = v.toFixed(2); else note(`No ${GRADES[$("f-grade").value]} price on SportsCardsPro for this card; enter one by hand.`); }
@@ -369,7 +384,7 @@ async function pick(d) {
   const m = /^(?:\w+ Cards )?(\d{4})\s+(.*)$/.exec(d.set) || [];
   const pm = /^(.*?)\s*#(\S+)\s*(?:\[(.*)\])?$/.exec(d.name) || [];
   $("f-year").value = m[1] || ""; $("f-set").value = m[2] || d.set; $("f-player").value = pm[1] || d.name; $("f-num").value = pm[2] || ""; $("f-var").value = pm[3] || "";
-  $("f-scp").value = d.id;
+  $("f-scp").value = d.id; $("f-scpkey").value = formKey();
   $("results").innerHTML = `<li class="hint">Linked to SportsCardsPro #${esc(d.id)}. The value follows the grade you pick.</li>`;
   await fillPrice();
 }
